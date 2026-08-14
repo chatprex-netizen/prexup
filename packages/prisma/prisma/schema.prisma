@@ -1,0 +1,855 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USUARIOS Y ROLES ───
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(AGENTE)
+  firstName String
+  lastName  String
+  phone     String?
+  avatar    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  properties    Property[]
+  contacts      Contact[]      @relation("AssignedContacts")
+  opportunities Opportunity[]
+  appointments  Appointment[]
+  activities    Activity[]
+  notifications Notification[]
+  contracts     Contract[]
+}
+
+enum Role {
+  PROPIETARIO
+  ADMIN
+  GERENTE_COMERCIAL
+  AGENTE
+  ASISTENTE
+}
+
+// ─── DESARROLLADORES INMOBILIARIOS ───
+model Developer {
+  id          String   @id @default(uuid())
+  name        String
+  legalName   String?
+  ruc         String?  @unique
+  email       String?
+  phone       String?
+  contactName String?
+  address     String?
+  website     String?
+  logo        String?
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  projects Project[]
+}
+
+// ─── PROYECTOS INMOBILIARIOS ───
+model Project {
+  id           String        @id @default(uuid())
+  name         String
+  description  String?       @db.Text
+  type         ProjectType
+  status       ProjectStatus @default(PREVENTA)
+  address      String
+  city         String
+  state        String
+  country      String        @default("Perú")
+  latitude     Float?
+  longitude    Float?
+  totalUnits   Int?
+  startDate    DateTime?
+  deliveryDate DateTime?
+  amenities    String[]
+  brochureUrl  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  developerId String
+  developer   Developer @relation(fields: [developerId], references: [id])
+
+  properties    Property[]
+  opportunities Opportunity[]
+  appointments  Appointment[]
+  expenses       Expense[]
+  incomes        Income[]
+}
+
+enum ProjectType {
+  EDIFICIO_MULTIFAMILIAR
+  CONDOMINIO
+  LOTIZACION
+  TERRENO_COMERCIAL
+  CENTRO_COMERCIAL
+  OFICINAS_CORPORATIVAS
+  HABILITACION_URBANA
+  MIXTO
+}
+
+enum ProjectStatus {
+  PREVENTA
+  EN_CONSTRUCCION
+  ENTREGADO
+  AGOTADO
+}
+
+// ─── PROPIEDADES / UNIDADES ───
+model Property {
+  id            String     @id @default(uuid())
+  unitCode      String // Ej: "T1-A-501", "Lote 23"
+  title         String
+  description   String?    @db.Text
+  type          UnitType
+  status        UnitStatus @default(DISPONIBLE)
+  price         Decimal    @db.Decimal(14, 2)
+  pricePerM2    Decimal?   @db.Decimal(12, 2)
+  currency      String     @default("USD")
+  areaTotal     Float? // m²
+  areaTechada   Float?
+  areaTerraza   Float?
+  areaJardin    Float?
+  bedrooms      Int?
+  bathrooms     Int?
+  parkingSpots  Int?
+  floor         Int?
+  orientation   String?
+  features      String[]
+  internalNotes String?    @db.Text
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  agentId String
+  agent   User   @relation(fields: [agentId], references: [id])
+
+  ownerId String?
+  owner   Contact? @relation("OwnerProperties", fields: [ownerId], references: [id])
+
+  opportunities Opportunity[]
+  appointments  Appointment[]
+  media         Media[]
+  contracts     Contract[]
+  journalEntries JournalEntry[]
+  expenses       Expense[]
+  incomes        Income[]
+  documents      Document[]
+}
+
+enum UnitType {
+  DEPARTAMENTO
+  DUPLEX
+  PENTHOUSE
+  LOFT
+  OFICINA
+  LOCAL_COMERCIAL
+  LOTE
+  ESTACIONAMIENTO
+  DEPOSITO
+}
+
+enum UnitStatus {
+  DISPONIBLE
+  SEPARADO
+  RESERVADO
+  VENDIDO
+  ENTREGADO
+}
+
+// ─── CONTACTOS ───
+model Contact {
+  id        String      @id @default(uuid())
+  type      ContactType
+  firstName String
+  lastName  String
+  email     String?
+  phone     String
+  phone2        String?
+  dni           String?
+  address       String?
+  city          String?
+  district      String?
+  department    String?
+  maritalStatus MaritalStatus?
+  spouseName    String?
+  spouseDni     String?
+  spouseEmail   String?
+  spousePhone   String?
+  source        LeadSource  @default(OTRO)
+  customSource  String?
+  budgetMin Decimal?    @db.Decimal(14, 2)
+  budgetMax Decimal?    @db.Decimal(14, 2)
+  currency  String      @default("USD")
+  interests String[] // ["departamento", "penthouse"]
+  tags      String[]
+  notes     String?     @db.Text
+  isVip     Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  assignedTo String?
+  agent      User?   @relation("AssignedContacts", fields: [assignedTo], references: [id])
+
+  properties         Property[]          @relation("OwnerProperties")
+  opportunities      Opportunity[]
+  appointments       Appointment[]
+  activities         Activity[]
+  chats              Chat[]
+  buyerContracts     Contract[]          @relation("BuyerContracts")
+  sellerContracts    Contract[]          @relation("SellerContracts")
+  campaignRecipients CampaignRecipient[]
+  journalEntryLines  JournalEntryLine[]
+  incomes            Income[]
+  documents          Document[]
+}
+
+enum ContactType {
+  LEAD
+  CLIENTE
+  INVERSIONISTA
+  PROPIETARIO
+  DESARROLLADOR
+  REFERIDO
+}
+
+enum LeadSource {
+  WEB
+  PORTAL_INMOBILIARIO
+  REDES_SOCIALES
+  REFERIDO
+  EVENTO
+  CALL_CENTER
+  VISITA_OFICINA
+  OTRO
+}
+
+enum MaritalStatus {
+  SOLTERO
+  CASADO
+  DIVORCIADO
+  VIUDO
+  CONVIVIENTE
+}
+
+// ─── OPORTUNIDADES / PIPELINE ───
+model Opportunity {
+  id            String        @id @default(uuid())
+  stage         PipelineStage @default(PROSPECCION)
+  value         Decimal?      @db.Decimal(14, 2)
+  currency      String        @default("USD")
+  probability   Int           @default(0)
+  expectedClose DateTime?
+  notes         String?       @db.Text
+  lostReason    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id])
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  agentId String
+  agent   User   @relation(fields: [agentId], references: [id])
+
+  activities Activity[]
+  journalEntries JournalEntry[]
+}
+
+enum PipelineStage {
+  PROSPECCION
+  CALIFICACION
+  VISITA
+  PROPUESTA
+  NEGOCIACION
+  CIERRE_GANADO
+  CIERRE_PERDIDO
+}
+
+// ─── CITAS / AGENDA ───
+model Appointment {
+  id           String            @id @default(uuid())
+  type         AppointmentType
+  title        String
+  startAt      DateTime
+  endAt        DateTime
+  location     String?
+  notes        String?           @db.Text
+  status       AppointmentStatus @default(PENDIENTE)
+  reminderSent Boolean           @default(false)
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id])
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  agentId String
+  agent   User   @relation(fields: [agentId], references: [id])
+}
+
+enum AppointmentType {
+  VISITA_PROYECTO
+  VISITA_UNIDAD
+  LLAMADA
+  REUNION
+  PRESENTACION
+}
+
+enum AppointmentStatus {
+  PENDIENTE
+  CONFIRMADA
+  COMPLETADA
+  CANCELADA
+  NO_SHOW
+}
+
+// ─── CONTRATOS ───
+model Contract {
+  id        String         @id @default(uuid())
+  type      ContractType
+  status    ContractStatus @default(BORRADOR)
+  number    String         @unique
+  content   String         @db.Text // HTML del contrato
+  pdfUrl    String?
+  signedAt  DateTime?
+  amount    Decimal        @db.Decimal(14, 2)
+  currency  String         @default("PEN")
+  terms     Json? // { cuotas: [], plazo: "", etc }
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  buyerId String
+  buyer   Contact @relation("BuyerContracts", fields: [buyerId], references: [id])
+
+  sellerId String?
+  seller   Contact? @relation("SellerContracts", fields: [sellerId], references: [id])
+
+  agentId String
+  agent   User   @relation(fields: [agentId], references: [id])
+  journalEntries JournalEntry[]
+  incomes Income[]
+}
+
+enum ContractType {
+  SEPARACION
+  RESERVA
+  COMPRAVENTA
+  ALQUILER
+  PROMESA
+}
+
+enum ContractStatus {
+  BORRADOR
+  ENVIADO
+  FIRMADO
+  PAGADO
+  CANCELADO
+}
+
+// ─── ACTIVIDADES / LOG ───
+model Activity {
+  id          String       @id @default(uuid())
+  type        ActivityType
+  description String
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+}
+
+enum ActivityType {
+  LLAMADA
+  EMAIL
+  VISITA
+  NOTA
+  CAMBIO_ETAPA
+  CONTRATO_CREADO
+  CONTRATO_FIRMADO
+}
+
+// ─── NOTIFICACIONES ───
+model Notification {
+  id        String           @id @default(uuid())
+  title     String
+  message   String
+  type      NotificationType
+  read      Boolean          @default(false)
+  data      Json?
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+enum NotificationType {
+  CITA_PROXIMA
+  OPORTUNIDAD_INACTIVA
+  CONTRATO_VENCIMIENTO
+  SEPARACION_VENCER
+  MENSAJE_SISTEMA
+}
+
+// ─── MEDIA / ARCHIVOS ───
+model Media {
+  id         String    @id @default(uuid())
+  url        String
+  thumbnail  String?
+  type       MediaType
+  order      Int       @default(0)
+  isMain     Boolean   @default(false)
+  propertyId String
+  property   Property  @relation(fields: [propertyId], references: [id])
+}
+
+enum MediaType {
+  IMAGEN
+  PLANO
+  VIDEO
+  DOCUMENTO
+  BROCHURE
+}
+
+// ─── CHATS Y MENSAJES (META WHATSAPP) ───
+model Chat {
+  id            String   @id @default(uuid())
+  phoneNumber   String   @unique // WhatsApp number
+  contactId     String?
+  contact       Contact? @relation(fields: [contactId], references: [id])
+  lastMessageAt DateTime @default(now())
+  unreadCount   Int      @default(0)
+  isBotActive   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  messages Message[]
+}
+
+model Message {
+  id         String        @id @default(uuid())
+  chatId     String
+  chat       Chat          @relation(fields: [chatId], references: [id])
+  wamid      String?       @unique // WhatsApp Message ID
+  content    String?       @db.Text
+  type       MessageType   @default(TEXT)
+  mediaUrl   String?
+  isFromUser Boolean // true si lo envió el lead, false si lo envió el CRM/Bot
+  isFromBot  Boolean       @default(false)
+  status     MessageStatus @default(SENT)
+  timestamp  DateTime      @default(now())
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+  TEMPLATE
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// ─── IA ASSISTANTS ───
+model AIAssistant {
+  id                String   @id @default(uuid())
+  name              String
+  provider          String   @default("openai") // openai, anthropic, google
+  apiKey            String?
+  model             String   @default("gpt-4o-mini")
+  prompt            String   @db.Text
+  knowledgeBase     String?  @db.Text // Contexto inyectado
+  isActive          Boolean  @default(true)
+  transcribeAudio   Boolean  @default(true)
+  smartGrouping     Boolean  @default(true)
+  humanizedTyping   Boolean  @default(false)
+  agentIntervention Boolean  @default(true)
+  triggerKeywords   String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// ─── FINANCIERO ───
+model Account {
+  id            String             @id @default(uuid())
+  code          String             @unique
+  name          String
+  type          AccountType
+  subtype       AccountSubtype
+  parentId      String?
+  parent        Account?           @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children      Account[]          @relation("AccountHierarchy")
+  description   String?
+  isActive      Boolean            @default(true)
+  bankName      String?
+  accountNumber String?
+  currency      String             @default("PEN")
+  initialBalance Decimal           @default(0) @db.Decimal(14, 2)
+  currentBalance Decimal           @default(0) @db.Decimal(14, 2)
+  entries       JournalEntryLine[]
+  createdAt     DateTime           @default(now())
+
+  @@index([type, subtype])
+}
+
+enum AccountType {
+  ACTIVO
+  PASIVO
+  PATRIMONIO
+  INGRESO
+  EGRESO
+}
+
+enum AccountSubtype {
+  CAJA
+  BANCOS
+  CUENTAS_COBRAR
+  INVENTARIO
+  INMUEBLES
+  CUENTAS_PAGAR
+  IMPUESTOS_PAGAR
+  PRESTAMOS
+  CAPITAL
+  RESULTADOS
+  VENTAS_PROPIEDADES
+  COMISIONES_RECIBIDAS
+  BONOS_RECIBIDOS
+  ALQUILERES
+  INTERESES
+  COMISIONES_PAGADAS
+  PUBLICIDAD
+  SERVICIOS
+  SUELDOS
+  IMPUESTOS
+  MANTENIMIENTO
+  ARRIENDO_OFICINA
+  UTILITIES
+  SEGUROS
+  VIAJES_TRANSPORTE
+  MATERIALES_OFICINA
+  CAPACITACION
+  OTROS
+}
+
+model JournalEntry {
+  id            String             @id @default(uuid())
+  number        String             @unique
+  date          DateTime
+  description   String             @db.Text
+  reference     String?
+  contractId    String?
+  contract      Contract?          @relation(fields: [contractId], references: [id])
+  propertyId    String?
+  property      Property?          @relation(fields: [propertyId], references: [id])
+  opportunityId String?
+  opportunity   Opportunity?       @relation(fields: [opportunityId], references: [id])
+  totalDebit    Decimal            @db.Decimal(14, 2)
+  totalCredit   Decimal            @db.Decimal(14, 2)
+  status        EntryStatus        @default(PENDIENTE)
+  postedAt      DateTime?
+  postedBy      String?
+  lines         JournalEntryLine[]
+  createdAt     DateTime           @default(now())
+  createdBy     String
+
+  @@index([date])
+  @@index([status])
+}
+
+model JournalEntryLine {
+  id          String       @id @default(uuid())
+  entryId     String
+  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId   String
+  account     Account      @relation(fields: [accountId], references: [id])
+  description String?
+  debit       Decimal      @default(0) @db.Decimal(14, 2)
+  credit      Decimal      @default(0) @db.Decimal(14, 2)
+  contactId   String?
+  contact     Contact?     @relation(fields: [contactId], references: [id])
+  currency    String       @default("PEN")
+  exchangeRate Decimal     @default(1) @db.Decimal(10, 4)
+
+  @@index([accountId])
+  @@index([entryId])
+}
+
+enum EntryStatus {
+  PENDIENTE
+  PUBLICADO
+  REVERSADO
+  ANULADO
+}
+
+model Expense {
+  id             String          @id @default(uuid())
+  number         String          @unique
+  date           DateTime
+  description    String          @db.Text
+  category       ExpenseCategory
+  subcategory    String?
+  amount         Decimal         @db.Decimal(14, 2)
+  currency       String          @default("PEN")
+  taxAmount      Decimal?        @db.Decimal(14, 2)
+  totalAmount    Decimal         @db.Decimal(14, 2)
+  vendorName     String?
+  vendorRuc      String?
+  vendorPhone    String?
+  docType        DocType         @default(RECIBO)
+  docNumber      String?
+  docUrl         String?
+  projectId      String?
+  project        Project?        @relation(fields: [projectId], references: [id])
+  propertyId     String?
+  property       Property?       @relation(fields: [propertyId], references: [id])
+  paymentMethod  PaymentMethod   @default(TRANSFERENCIA)
+  paidAt         DateTime?
+  status         ExpenseStatus   @default(PENDIENTE)
+  journalEntryId String?
+  createdAt      DateTime        @default(now())
+  createdBy      String
+
+  @@index([date])
+  @@index([category])
+}
+
+enum ExpenseCategory {
+  COMISIONES_AGENTES
+  PUBLICIDAD_MARKETING
+  SERVICIOS_PROFESIONALES
+  SUELDOS_PLANILLA
+  IMPUESTOS
+  MANTENIMIENTO
+  ARRIENDO_OFICINA
+  UTILITIES
+  SEGUROS
+  VIAJES_TRANSPORTE
+  MATERIALES_OFICINA
+  CAPACITACION
+  OTROS
+}
+
+enum DocType {
+  FACTURA
+  BOLETA
+  RECIBO
+  NOTA_CREDITO
+  TICKET
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  TRANSFERENCIA
+  CHEQUE
+  TARJETA
+  DEPOSITO
+}
+
+enum ExpenseStatus {
+  PENDIENTE
+  APROBADO
+  PAGADO
+  RECHAZADO
+}
+
+model Income {
+  id                String        @id @default(uuid())
+  number            String        @unique
+  date              DateTime
+  description       String        @db.Text
+  type              IncomeType
+  amount            Decimal       @db.Decimal(14, 2)
+  currency          String        @default("PEN")
+  contractId        String?
+  contract          Contract?     @relation(fields: [contractId], references: [id])
+  propertyId        String?
+  property          Property?     @relation(fields: [propertyId], references: [id])
+  projectId         String?
+  project           Project?      @relation(fields: [projectId], references: [id])
+  contactId         String?
+  contact           Contact?      @relation(fields: [contactId], references: [id])
+  isInstallment     Boolean       @default(false)
+  installmentNumber Int?
+  totalInstallments Int?
+  paymentMethod     PaymentMethod @default(TRANSFERENCIA)
+  receivedAt        DateTime?
+  status            IncomeStatus  @default(PENDIENTE)
+  journalEntryId    String?
+  createdAt         DateTime      @default(now())
+  createdBy         String
+
+  @@index([date])
+  @@index([type])
+  @@index([contractId])
+}
+
+enum IncomeType {
+  VENTA_PROPIEDAD
+  COMISION_PROYECTO
+  BONO
+  ALQUILER
+  SEPARACION
+  RESERVA
+  CUOTA
+  INTERESES
+  OTROS
+}
+
+enum IncomeStatus {
+  PENDIENTE
+  COBRADO
+  ANULADO
+}
+
+// 🟢🟢🟢 TEMPLATES DE WHATSAPP 🟢🟢🟢
+model WhatsAppTemplate {
+  id         String           @id @default(uuid())
+  name       String           @unique
+  language   String           @default("es")
+  category   TemplateCategory @default(MARKETING)
+  status     TemplateStatus   @default(PENDING)
+  components Json? // Array de componentes de la plantilla según Meta (header, body, buttons)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  campaigns Campaign[]
+}
+
+enum TemplateCategory {
+  MARKETING
+  UTILITY
+  AUTHENTICATION
+}
+
+enum TemplateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// 🟢🟢🟢 CAMPAÑAS (DIFUSIONES) 🟢🟢🟢
+model Campaign {
+  id          String         @id @default(uuid())
+  name        String
+  status      CampaignStatus @default(DRAFT)
+  scheduledAt DateTime?
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  templateId String
+  template   WhatsAppTemplate @relation(fields: [templateId], references: [id])
+
+  recipients CampaignRecipient[]
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+model CampaignRecipient {
+  id         String   @id @default(uuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id])
+
+  status      RecipientStatus @default(PENDING)
+  errorReason String?
+  sentAt      DateTime?
+
+  @@unique([campaignId, contactId])
+}
+
+enum RecipientStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// 🔧 CONFIGURACIÓN DEL SISTEMA (almacena credenciales cifradas por clave)
+model SystemConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model PipelineStageConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique // Matches the PipelineStage enum values
+  name      String
+  details   String?  @db.Text
+  color     String   @default("#64748b")
+  isVisible Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LeadSourceConfig {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  color     String   @default("#3b82f6")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── DOCUMENTS ───
+model Document {
+  id         String   @id @default(uuid())
+  title      String
+  url        String
+  type       String
+  contactId  String?
+  propertyId String?
+  createdAt  DateTime @default(now())
+
+  contact    Contact?  @relation(fields: [contactId], references: [id])
+  property   Property? @relation(fields: [propertyId], references: [id])
+}
+

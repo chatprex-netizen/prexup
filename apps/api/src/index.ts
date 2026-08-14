@@ -1,0 +1,70 @@
+import express, { Request, Response } from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const app = express();
+const port = process.env.PORT || 3001;
+
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+}));
+app.use(express.json());
+
+// ─── ROUTES ───
+import authRoutes from './routes/auth';
+import webhookRoutes from './routes/webhooks';
+import contactsRoutes from './routes/contacts';
+import clientsRoutes from './routes/clients';
+import inventoryRoutes from './routes/inventory';
+import pipelineRoutes from './routes/pipeline';
+import financesRoutes from './routes/finances';
+import appointmentsRoutes from './routes/appointments';
+import contractsRoutes from './routes/contracts';
+import chatsRoutes from './routes/chats';
+import templatesRoutes from './routes/templates';
+import campaignsRoutes from './routes/campaigns';
+import settingsRoutes from './routes/settings';
+import uploadRoutes from './routes/upload';
+import activitiesRoutes from './routes/activities';
+import path from 'path';
+
+// Serve static files from uploads folder
+app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
+
+app.use('/api/auth', authRoutes);
+app.use('/api/webhooks', webhookRoutes);
+app.use('/api/contacts', contactsRoutes);
+app.use('/api/clients', clientsRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/pipeline', pipelineRoutes);
+app.use('/api/finances', financesRoutes);
+app.use('/api/appointments', appointmentsRoutes);
+app.use('/api/contracts', contractsRoutes);
+app.use('/api/chats', chatsRoutes);
+app.use('/api/templates', templatesRoutes);
+app.use('/api/campaigns', campaignsRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/activities', activitiesRoutes);
+
+// ─── HEALTH CHECK ───
+app.get('/api/health', (req: Request, res: Response) => {
+  res.json({ status: 'ok', message: 'Propify CRM API is running' });
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+app.listen(port, () => {
+  console.log(`🚀 Propify CRM API running on http://localhost:${port}`);
+});
